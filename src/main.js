@@ -4,8 +4,19 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 
 const BASE_URL = 'https://www.romstation.fr/games/ps2/007-bons-baisers-de-russie-r';
-const gamesDirectory = path.join(__dirname, 'games');
+const gamesDirectory = '/Users/william.marcq/Documents';
 const BASE_DESTINATION_FOLDER = 'CLEAN_GAMES/';
+
+async function extractGameIDFromDirectoryName(directoryName) {
+    // Vous pouvez choisir un caractère délimiteur approprié (dans cet exemple, le tiret).
+    const parts = directoryName.split('-');
+    if (parts.length >= 2) {
+        const gameID = parts[parts.length - 1].trim();
+        return gameID;
+    }
+    // Retourne null si le GAME_ID n'a pas pu être extrait.
+    return null;
+}
 
 async function fetchGameConsole(GAME_ID) {
     const url = `${BASE_URL}${GAME_ID}`;
@@ -108,14 +119,20 @@ async function main() {
 
         for (const filePath of zipFiles) {
             try {
-                const GAME_ID = path.basename(filePath, '.zip');
-                console.log(`Traitement du fichier ${filePath} avec GAME_ID ${GAME_ID}`);
-                const gameConsole = await fetchGameConsole(GAME_ID);
-                const gameName = await fetchGameName(GAME_ID);
-                const cleanedGameName = cleanFileName(gameName);
-                const newFilePath = await renameFile(filePath, cleanedGameName);
-                await moveFileToConsoleFolder(newFilePath, gameConsole);
-                await deleteParentDirectories(filePath, 3);
+                const gameDirectoryName = path.basename(filePath, '.zip');
+                const GAME_ID = await extractGameIDFromDirectoryName(gameDirectoryName);
+
+                if (GAME_ID) {
+                    console.log(`Traitement du fichier ${filePath} avec GAME_ID ${GAME_ID}`);
+                    const gameConsole = await fetchGameConsole(GAME_ID);
+                    const gameName = await fetchGameName(GAME_ID);
+                    const cleanedGameName = cleanFileName(gameName);
+                    const newFilePath = await renameFile(filePath, cleanedGameName);
+                    await moveFileToConsoleFolder(newFilePath, gameConsole);
+                } else {
+                    console.error(`Impossible d'extraire le GAME_ID du dossier ${gameDirectoryName}`);
+                    errorFiles.push(filePath);
+                }
             } catch (error) {
                 console.error(`Erreur lors du traitement du fichier ${filePath}:`, error);
                 errorFiles.push(filePath);
